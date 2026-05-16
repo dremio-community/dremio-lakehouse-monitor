@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Start Dremio Monitor
+Comment=Starts the Dremio Lakehouse Monitor
+Exec=/home/mark/Documents/dremio-lakehouse-monitor/launch_linux.sh
+Icon=/home/mark/Documents/dremio-lakehouse-monitor/start_icon.png
+Terminal=true
+Categories=Utility;

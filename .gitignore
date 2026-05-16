@@ -1,0 +1,42 @@
+# SQLite database (contains credentials/config)
+monitor.db
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Duplicate nested folder (artifact)
+dremio-lakehouse-monitor/
+
+# Dev/debug test scripts
+test_cloud_sql.py
+test_cloud_tables.py
+test_files.py
+test_snapshot.py
+test_snapshot_2.py
+update_cloud_sql.py

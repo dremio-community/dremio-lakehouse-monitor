@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lakehouse Monitor for Dremio</title>
+  <meta name="description" content="Real-time monitoring, diagnostics, and alerting for Dremio">
+  <link rel="stylesheet" href="css/monitor.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔷</text></svg>">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#58a6ff" fill-opacity="0.15"/>
+        <path d="M7 14h4l3-7 4 14 3-7h4" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Lakehouse Monitor for Dremio</span>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="connection-dot"></div>
+      <span id="connection-label">Disconnected</span>
+      <span id="last-updated" style="margin-left:12px;color:var(--text-muted)"></span>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" data-panel="dashboard">📊 Dashboard</button>
+    <button class="nav-tab" data-panel="queries">🔍 Queries</button>
+    <button class="nav-tab" data-panel="reflections">💎 Reflections</button>
+    <button class="nav-tab" data-panel="alerts">🔔 Alerts <span class="badge" id="alert-badge" style="display:none">0</span></button>
+    <button class="nav-tab" data-panel="settings">⚙️ Settings</button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Setup Screen (shown when no connection) -->
+    <div id="setup-screen" class="setup-container" style="display:none">
+      <div class="card">
+        <div class="setup-title">Welcome to Lakehouse Monitor</div>
+        <div class="setup-subtitle">Connect to your Dremio instance to get started</div>
+        <div id="setup-form"></div>
+      </div>
+    </div>
+
+    <!-- Dashboard Panel -->
+    <div id="panel-dashboard" class="panel active">
+
+      <!-- Widget Toggle Bar -->
+      <div class="widget-toggle-bar" id="widget-toggle-bar">
+        <button class="btn btn-sm btn-secondary" id="toggle-widgets-btn" title="Show/hide widgets">
+          🎛️ Customize
+        </button>
+        <div class="widget-toggle-dropdown" id="widget-toggle-dropdown" style="display:none">
+          <div class="widget-toggle-header">Toggle Widgets</div>
+          <div class="widget-toggle-list" id="widget-toggle-list"></div>
+          <div class="widget-toggle-footer">
+            <button class="btn btn-sm btn-secondary" id="toggle-all-btn">All On</button>
+            <button class="btn btn-sm btn-secondary" id="toggle-none-btn">All Off</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 1: Core Metrics -->
+      <div class="dashboard-grid" data-widget="cluster_health,active_queries,query_rate">
+        <div class="card metric-card" data-widget="cluster_health">
+          <div class="card-title">Cluster Health</div>
+          <div class="health-ring-container">
+            <canvas id="health-ring" width="100" height="100"></canvas>
+            <div id="health-label" style="font-size:0.85rem; text-align:center">Checking...</div>
+          </div>
+        </div>
+        <div class="card metric-card" data-widget="active_queries">
+          <div class="card-title">Active Queries</div>
+          <div class="metric-value" id="active-queries-count">—</div>
+          <div class="metric-subtitle" id="queued-label">0 queued</div>
+          <div class="sparkline-container"><canvas id="sparkline-queries" width="260" height="40"></canvas></div>
+        </div>
+        <div class="card metric-card" data-widget="query_rate">
+          <div class="card-title">Query Rate (last hour)</div>
+          <div class="metric-value" id="query-rate">—</div>
+          <div class="metric-subtitle" id="query-rate-subtitle">—</div>
+        </div>
+      </div>
+
+      <!-- Row 1b: Acceleration + Scan Efficiency -->
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:16px" data-widget="acceleration_rate,scan_efficiency,query_types">
+        <div class="card metric-card" data-widget="acceleration_rate">
+          <div class="card-title">Acceleration Rate</div>
+          <div class="metric-value green" id="accel-rate">—</div>
+          <div class="metric-subtitle" id="accel-subtitle">—</div>
+        </div>
+        <div class="card metric-card" data-widget="scan_efficiency">
+          <div class="card-title">Scan Efficiency</div>
+          <div class="savings-card">
+            <div class="savings-row">
+              <span class="savings-label">Data scanned</span>
+              <span class="savings-value" id="scan-bytes-scanned">—</span>
+            </div>
+            <div class="savings-row">
+              <span class="savings-label">Data returned</span>
+              <span class="savings-value green" id="scan-bytes-returned">—</span>
+            </div>
+            <div class="savings-divider"></div>
+            <div class="savings-row">
+              <span class="savings-label">Filter efficiency</span>
+              <span class="savings-value accent" id="scan-filter-pct">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="card metric-card" data-widget="query_types">
+          <div class="card-title">Query Types (24h)</div>
+          <div class="donut-chart-container">
+            <canvas id="query-types-donut" width="120" height="120"></canvas>
+            <div class="donut-legend" id="query-types-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Sources + Memory -->
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; margin-top:16px" data-widget="sources_memory">
+        <div class="card" data-widget="sources_memory">
+          <div class="card-title">Data Sources</div>
+          <div class="source-grid" id="source-grid">
+            <div class="empty-state"><div class="empty-state-text">No sources loaded</div></div>
+          </div>
+        </div>
+        <div class="card" data-widget="sources_memory">
+          <div class="card-title">Memory by Node</div>
+          <div class="memory-nodes" id="memory-nodes">
+            <div class="empty-state"><div class="empty-state-text">No memory data</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2b: Query Lifecycle -->
+      <div class="card" style="margin-top:16px" data-widget="query_lifecycle">
+        <div class="card-title">Query Lifecycle Breakdown (avg per query)</div>
+        <div class="stacked-chart-wrapper" id="lifecycle-chart">
+          <div class="empty-state"><div class="empty-state-text">Collecting data...</div></div>
+        </div>
+      </div>
+
+      <!-- Top Slow Queries -->
+      <div class="card" style="margin-top:16px" data-widget="slow_queries">
+        <div class="card-title">Top Slow Queries</div>
+        <table class="data-table" id="slow-queries-table">
+          <thead><tr><th>User</th><th>Query</th><th>Duration</th><th>Status</th></tr></thead>
+          <tbody id="slow-queries-body">
+            <tr><td colspan="4" class="empty-state"><div class="empty-state-text">No active queries</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Recent Alerts -->
+      <div class="card" style="margin-top:16px" data-widget="recent_alerts">
+        <div class="card-title">Recent Alerts</div>
+        <div class="alert-timeline" id="dashboard-alerts">
+          <div class="empty-state"><div class="empty-state-text">No recent alerts</div></div>
+        </div>
+      </div>
+
+      <!-- Row 3: Success Rate + Reflection Savings + Queue Wait -->
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:16px" data-widget="success_rate,reflection_savings,queue_wait">
+        <div class="card metric-card" data-widget="success_rate">
+          <div class="card-title">Query Success Rate</div>
+          <div class="donut-chart-container">
+            <canvas id="success-donut" width="120" height="120"></canvas>
+            <div class="donut-legend" id="success-legend">
+              <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Completed</div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>Failed</div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--yellow)"></span>Cancelled</div>
+            </div>
+          </div>
+        </div>
+        <div class="card metric-card" data-widget="reflection_savings">
+          <div class="card-title">Reflection Savings</div>
+          <div class="savings-card">
+            <div class="savings-row">
+              <span class="savings-label">Avg accelerated</span>
+              <span class="savings-value green" id="avg-accel-time">—</span>
+            </div>
+            <div class="savings-row">
+              <span class="savings-label">Avg non-accelerated</span>
+              <span class="savings-value" id="avg-non-accel-time">—</span>
+            </div>
+            <div class="savings-divider"></div>
+            <div class="savings-row">
+              <span class="savings-label">Est. speedup</span>
+              <span class="savings-value accent" id="speedup-factor">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="card metric-card" data-widget="queue_wait">
+          <div class="card-title">Queue Wait Trend</div>
+          <div class="metric-value" id="queue-wait-count">—</div>
+          <div class="metric-subtitle" id="queue-wait-label">queued queries</div>
+          <div class="sparkline-container"><canvas id="sparkline-queue" width="260" height="40"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Row 4: Top Users + Top Datasets -->
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; margin-top:16px" data-widget="top_users,top_datasets">
+        <div class="card" data-widget="top_users">
+          <div class="card-title">Top Users (last 24h)</div>
+          <div class="hbar-container" id="top-users-chart">
+            <div class="empty-state"><div class="empty-state-text">No data yet</div></div>
+          </div>
+        </div>
+        <div class="card" data-widget="top_datasets">
+          <div class="card-title">Top Queried Datasets (last 24h)</div>
+          <div class="datasets-table-container">
+            <table class="data-table" id="top-datasets-table">
+              <thead><tr><th>Dataset</th><th>Queries</th><th>Avg Duration</th><th>Accel %</th></tr></thead>
+              <tbody id="top-datasets-body">
+                <tr><td colspan="4" class="empty-state"><div class="empty-state-text">No data yet</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 5: Query Duration Distribution -->
+      <div class="card" style="margin-top:16px" data-widget="duration_distribution">
+        <div class="card-title">Query Duration Distribution (last 24h)</div>
+        <div class="histogram-container">
+          <canvas id="duration-histogram" width="600" height="180"></canvas>
+        </div>
+      </div>
+
+      <!-- Row 6: Error Patterns -->
+      <div class="card" style="margin-top:16px" data-widget="error_patterns">
+        <div class="card-title">Error Patterns (last 24h)</div>
+        <div class="datasets-table-container">
+          <table class="data-table" id="error-patterns-table">
+            <thead><tr><th>Error</th><th>Count</th><th>Last Seen</th></tr></thead>
+            <tbody id="error-patterns-body">
+              <tr><td colspan="3" class="empty-state"><div class="empty-state-text">No errors — nice!</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Row 7: Reflection Efficiency -->
+      <div class="card" style="margin-top:16px" data-widget="reflection_efficiency">
+        <div class="card-title">Reflection Utilization</div>
+        <div class="datasets-table-container">
+          <table class="data-table" id="reflection-eff-table">
+            <thead><tr><th>Reflection</th><th>Type</th><th>Considered</th><th>Matched</th><th>Accelerated</th><th>Size</th><th>Status</th></tr></thead>
+            <tbody id="reflection-eff-body">
+              <tr><td colspan="7" class="empty-state"><div class="empty-state-text">No reflections</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════ ENHANCED MONITORS ═══════ -->
+
+      <!-- Engine Health -->
+      <div class="dashboard-grid" style="grid-template-columns: 200px 1fr; margin-top:24px" data-widget="engine_health">
+        <div class="card metric-card" data-widget="engine_health">
+          <div class="card-title">Engine Health</div>
+          <div class="health-ring-container">
+            <canvas id="engine-health-ring" width="100" height="100"></canvas>
+            <div id="engine-health-label" style="font-size:0.85rem; text-align:center">Checking...</div>
+          </div>
+          <div style="text-align:center; margin-top:8px">
+            <span class="metric-subtitle" id="engine-node-count">— nodes</span>
+          </div>
+        </div>
+        <div class="card" data-widget="engine_health">
+          <div class="card-title">Memory Pressure by Node</div>
+          <div id="engine-pressure-gauges">
+            <div class="empty-state"><div class="empty-state-text">No data</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engine Trends -->
+      <div class="card" style="margin-top:16px" data-widget="engine_trends">
+        <div class="card-title">Engine Memory Trend (last 4h)</div>
+        <div class="line-chart-container">
+          <canvas id="engine-trend-chart" width="600" height="120"></canvas>
+        </div>
+      </div>
+
+      <!-- Reflection Health -->
+      <div class="dashboard-grid" style="grid-template-columns: 200px 1fr; margin-top:24px" data-widget="reflection_health">
+        <div class="card metric-card" data-widget="reflection_health">
+          <div class="card-title">Reflection Health</div>
+          <div class="health-ring-container">
+            <canvas id="reflection-health-ring" width="100" height="100"></canvas>
+            <div id="reflection-health-label" style="font-size:0.85rem; text-align:center">Checking...</div>
+          </div>
+          <div style="margin-top:8px; font-size:0.8rem; color:var(--text-secondary); text-align:center">
+            <div id="reflection-health-stats">—</div>
+          </div>
+        </div>
+        <div class="card" data-widget="reflection_health">
+          <div class="card-title">Reflection Issues</div>
+          <div id="reflection-health-issues">
+            <div class="empty-state"><div class="empty-state-text">Analyzing...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dead Accelerations -->
+      <div class="card" style="margin-top:16px" data-widget="dead_accelerations">
+        <div class="card-title">🪦 Dead Accelerations <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:normal">(active reflections with zero query hits)</span></div>
+        <div class="datasets-table-container">
+          <table class="data-table" id="dead-accel-table">
+            <thead><tr><th>Reflection</th><th>Type</th><th>Dataset</th><th>Wasted Storage</th><th>Considered</th></tr></thead>
+            <tbody id="dead-accel-body">
+              <tr><td colspan="5" class="empty-state"><div class="empty-state-text">No dead accelerations — great! 🎉</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Iceberg Health -->
+      <div class="card" style="margin-top:24px" data-widget="iceberg_health">
+        <div class="card-title">🧊 Iceberg Table Health</div>
+        <div id="iceberg-health-container">
+          <div class="empty-state">
+            <div class="empty-state-icon">🧊</div>
+            <div class="empty-state-text">No tables being watched</div>
+            <div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">Add Iceberg tables in Settings → Watched Tables</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════ ADVANCED OBSERVABILITY ═══════ -->
+
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:24px" data-widget="c3_hit_rates,wlm_queue_metrics,spill_to_disk">
+        <!-- C3 Hit Rates -->
+        <div class="card metric-card" data-widget="c3_hit_rates">
+          <div class="card-title">C3 Cache Hit Rate</div>
+          <div class="metric-value green" id="c3-hit-rate">—</div>
+          <div class="metric-subtitle" id="c3-subtitle">Hit / Miss Bytes</div>
+        </div>
+        
+        <!-- WLM Queue Metrics -->
+        <div class="card" data-widget="wlm_queue_metrics">
+          <div class="card-title">WLM Queue Wait Times</div>
+          <div class="datasets-table-container">
+            <table class="data-table" id="wlm-table">
+              <thead><tr><th>Queue</th><th>Jobs</th><th>Avg Wait</th><th>Rejected</th></tr></thead>
+              <tbody id="wlm-body">
+                <tr><td colspan="4" class="empty-state"><div class="empty-state-text">No data</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Spill to Disk Tracking -->
+        <div class="card" data-widget="spill_to_disk">
+          <div class="card-title">Spilled Queries</div>
+          <div class="datasets-table-container">
+            <table class="data-table" id="spill-table">
+              <thead><tr><th>User</th><th>Duration</th><th>Bytes</th></tr></thead>
+              <tbody id="spill-body">
+                <tr><td colspan="3" class="empty-state"><div class="empty-state-text">No spilled queries</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:16px" data-widget="catalog_sync_health,iceberg_maintenance,autoscaling_events">
+        <!-- Catalog Sync Health -->
+        <div class="card" data-widget="catalog_sync_health">
+          <div class="card-title">Catalog Sync Health</div>
+          <div class="datasets-table-container">
+            <table class="data-table" id="catalog-sync-table">
+              <thead><tr><th>Source</th><th>Status</th><th>Latency</th></tr></thead>
+              <tbody id="catalog-sync-body">
+                <tr><td colspan="3" class="empty-state"><div class="empty-state-text">No data</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Iceberg Maintenance -->
+        <div class="card" data-widget="iceberg_maintenance">
+          <div class="card-title">Iceberg Maintenance Jobs</div>
+          <div class="datasets-table-container">
+            <table class="data-table" id="iceberg-maintenance-table">
+              <thead><tr><th>Job Type</th><th>Status</th><th>Duration</th></tr></thead>
+              <tbody id="iceberg-maintenance-body">
+                <tr><td colspan="3" class="empty-state"><div class="empty-state-text">No recent jobs</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Auto-Scaling Events -->
+        <div class="card" data-widget="autoscaling_events">
+          <div class="card-title">Auto-Scaling Events</div>
+          <div class="datasets-table-container">
+            <table class="data-table" id="autoscaling-table">
+              <thead><tr><th>Engine</th><th>Event</th><th>Time</th></tr></thead>
+              <tbody id="autoscaling-body">
+                <tr><td colspan="3" class="empty-state"><div class="empty-state-text">No events</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Queries Panel -->
+    <div id="panel-queries" class="panel">
+      <div class="section-header">
+        <div class="section-title">Query Explorer</div>
+        <div class="filters-bar" id="query-filters">
+          <button class="filter-chip active" data-filter="active">Active</button>
+          <button class="filter-chip" data-filter="recent">Recent</button>
+          <button class="filter-chip" data-filter="failed">Failed</button>
+        </div>
+      </div>
+      <div class="card">
+        <table class="data-table">
+          <thead><tr><th>Job ID</th><th>User</th><th>Query</th><th>Duration</th><th>Rows</th><th>Status</th><th>Accelerated</th></tr></thead>
+          <tbody id="queries-body">
+            <tr><td colspan="7" class="empty-state"><div class="empty-state-text">No queries</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Reflections Panel -->
+    <div id="panel-reflections" class="panel">
+      <div class="section-header">
+        <div class="section-title">Reflection Health</div>
+        <div id="reflection-summary" class="filters-bar"></div>
+      </div>
+      <div class="reflection-grid" id="reflection-grid">
+        <div class="empty-state"><div class="empty-state-icon">💎</div><div class="empty-state-text">No reflections found</div></div>
+      </div>
+    </div>
+
+    <!-- Alerts Panel -->
+    <div id="panel-alerts" class="panel">
+      <div class="section-header">
+        <div class="section-title">Alert Rules</div>
+        <button class="btn btn-primary btn-sm" id="add-rule-btn">+ Add Rule</button>
+      </div>
+      <div id="alert-rules-list" style="margin-bottom:24px"></div>
+      <div class="section-header"><div class="section-title">Alert History</div></div>
+      <div class="alert-timeline" id="alert-history"></div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="panel-settings" class="panel">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-title">Dremio Connection</div>
+          <div id="connection-form"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Notification Channels</div>
+          <div id="notification-form"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🧊 Watched Iceberg Tables</div>
+          <div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-secondary)">
+            Add Iceberg tables to monitor for file health, small files, and maintenance signals.
+          </div>
+          <div class="form-row" id="watched-table-add-container">
+            <div class="form-group">
+              <select class="form-input" id="watched-table-path">
+                <option value="">Loading available tables...</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 auto">
+              <button class="btn btn-primary btn-sm" id="add-watched-table-btn">+ Add Table</button>
+            </div>
+          </div>
+          <div id="watched-tables-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title"></div>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <script src="js/charts.js"></script>
+  <script src="js/websocket.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/queries.js"></script>
+  <script src="js/reflections.js"></script>
+  <script src="js/alerts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

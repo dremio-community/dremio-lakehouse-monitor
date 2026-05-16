@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Stop Dremio Monitor
+Comment=Stops the Dremio Lakehouse Monitor
+Exec=/home/mark/Documents/dremio-lakehouse-monitor/stop_linux.sh
+Icon=/home/mark/Documents/dremio-lakehouse-monitor/stop_icon.png
+Terminal=false
+Categories=Utility;
