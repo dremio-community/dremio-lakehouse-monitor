@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  lakehouse-monitor:
+    build: .
+    image: dremio-lakehouse-monitor:latest
+    container_name: dremio-lakehouse-monitor
+    ports:
+      - "8770:8770"
+    volumes:
+      - monitor-data:/data
+    restart: unless-stopped
+    # Note: If Dremio is running locally on your machine, connect using:
+    # 'host.docker.internal' (Mac/Windows) or '172.17.0.1' (Linux)
+
+volumes:
+  monitor-data:
+    description: "Persistent storage for the SQLite database"
