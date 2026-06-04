@@ -46,6 +46,7 @@ const App = {
     Queries.init();
     Reflections.init();
     Alerts.init();
+    SchemaDrift.init();
     this.initSettings();
 
     // Periodic refresh
@@ -73,6 +74,7 @@ const App = {
     else if (name === 'queries') Queries.refresh();
     else if (name === 'reflections') Reflections.refresh();
     else if (name === 'alerts') Alerts.refresh();
+    else if (name === 'schema') SchemaDrift.refresh();
   },
 
   showSetup() {

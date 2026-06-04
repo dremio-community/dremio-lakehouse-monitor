@@ -707,3 +707,13 @@ body {
   font-family: var(--mono); font-size: 0.8rem;
   color: var(--accent); word-break: break-all;
 }
+
+/* ── Schema Drift ────────────────────── */
+.drift-badge {
+  display: inline-block; padding: 2px 7px; border-radius: 10px;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.drift-green  { background: rgba(63,185,80,0.15);  color: var(--green);  }
+.drift-red    { background: rgba(248,81,73,0.15);  color: var(--red);    }
+.drift-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }

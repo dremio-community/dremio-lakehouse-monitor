@@ -61,6 +61,7 @@ class Poller:
             "catalog_sync_health": [],
             "iceberg_maintenance": [],
             "autoscaling_events": [],
+            "schema_drift": [],
             "last_updated": 0,
             "error": None,
         }
@@ -95,6 +96,7 @@ class Poller:
             "catalog_sync_health": 120,
             "iceberg_maintenance": 120,
             "autoscaling_events": 60,
+            "schema_drift": 300,
         }
 
         # Last poll timestamps
@@ -234,6 +236,8 @@ class Poller:
             new_data = self.client.get_iceberg_maintenance()
         elif key == "autoscaling_events":
             new_data = self.client.get_autoscaling_events()
+        elif key == "schema_drift":
+            new_data = self._poll_schema_drift()
         else:
             return
 
@@ -398,9 +402,41 @@ class Poller:
                 "catalog_sync_health": self.state.get("catalog_sync_health", []),
                 "iceberg_maintenance": self.state.get("iceberg_maintenance", []),
                 "autoscaling_events": self.state.get("autoscaling_events", []),
+                "schema_drift": self.state.get("schema_drift", []),
                 "last_updated": self.state["last_updated"],
                 "error": self.state["error"],
             }
+
+    def _poll_schema_drift(self):
+        """Snapshot schemas of all watched tables and return recent drift events."""
+        tables = db.get_watched_tables()
+        if not tables:
+            return []
+
+        all_drifts = []
+        for t in tables:
+            try:
+                cols = self.client.describe_table(t["table_path"])
+                if not cols:
+                    continue
+                drifts = db.save_schema_snapshot(t["table_path"], cols)
+                for dtype, col_name, old_val, new_val in drifts:
+                    all_drifts.append({
+                        "table": t["table_path"],
+                        "label": t.get("label", t["table_path"]),
+                        "drift_type": dtype,
+                        "column_name": col_name,
+                        "old_value": old_val,
+                        "new_value": new_val,
+                    })
+                    logger.warning(
+                        f"Schema drift on {t['table_path']}: "
+                        f"{dtype} — column '{col_name}'"
+                    )
+            except Exception as e:
+                logger.warning(f"Schema drift poll error for {t['table_path']}: {e}")
+
+        return all_drifts
 
     def _poll_iceberg_health(self):
         """Poll health for all watched Iceberg tables."""

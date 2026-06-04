@@ -91,6 +91,42 @@ This is a lightweight application. The backend is powered by Python's `http.serv
 - **Iceberg Maintenance**: Tracks the status of Iceberg maintenance operations like optimization and vacuuming.
 - **Autoscaling Events**: Logs engine autoscaling activities (scale-ups and scale-downs).
 
+## Schema Drift Monitor
+
+The **Schema Drift Monitor** tracks column-level changes across your watched Iceberg tables over time and alerts you when breaking changes occur.
+
+### How it works
+
+Every 5 minutes the monitor runs `DESCRIBE TABLE` against each watched Iceberg table and snapshots the result to a local SQLite store. Each snapshot is diffed against the previous one to detect:
+
+| Change Type | Description |
+|---|---|
+| **Column Dropped** | A column present in the previous snapshot is missing |
+| **Type Changed** | A column's data type has changed (e.g. `INT` → `BIGINT`) |
+| **Nullability Changed** | A column's nullable constraint has changed |
+| **Column Added** | A new column has appeared |
+
+Dropped columns and type changes are the most dangerous — they silently break downstream queries, reflections, and BI tools.
+
+### Schema tab
+
+The **🔀 Schema** tab in the UI provides:
+
+- **Summary cards** — tables monitored, total drift events, columns dropped, type changes
+- **Drift event log** — color-coded timeline of every detected change with before/after values and an Ack button to mark events as reviewed
+- **Current schema viewer** — inspect the latest captured column list for any watched table, with drifted columns highlighted inline
+- **Badge** on the tab showing the count of unacknowledged drift events
+
+The tab updates live via WebSocket whenever a new drift is detected during a poll cycle.
+
+### Schema drift alert rule
+
+A new `schema_drift` alert rule type is available in the Alerts tab. When triggered it fires a notification describing what changed (e.g. "2 column(s) dropped, 1 type change(s)") and routes through the same email/webhook channels as other alerts. Set severity to **Critical** for dropped columns if downstream breakage is a concern.
+
+### Data retention
+
+Schema snapshots are retained for 90 days per table. Drift events persist indefinitely until acknowledged.
+
 ## Built-in Alerting Engine
 The Dremio Lakehouse Monitor features a built-in alerting engine that evaluates polled metrics against custom thresholds.
 Here is a breakdown of what the alerting system currently supports:
@@ -102,6 +138,7 @@ Here is a breakdown of what the alerting system currently supports:
 4. **Source Down**: Triggers immediately if any connected data source loses connectivity or enters an unhealthy state.
 5. **Reflection Failures**: Triggers if the count of reflections in a "FAILED" state hits your threshold limit.
 6. **Failed Jobs**: Triggers if the total count of failed queries/jobs exceeds a certain limit.
+7. **Schema Drift**: Triggers whenever a column is dropped, a type changes, or a column is added on any watched Iceberg table.
 
 ### Alert Features
 - **Severity Levels**: Alerts can be categorized as Info, Warning, or Critical.

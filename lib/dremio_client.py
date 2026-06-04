@@ -971,6 +971,21 @@ class DremioClient:
 
         return result
 
+    def describe_table(self, table_path):
+        """Return column list [{name, type, nullable}] for a table."""
+        try:
+            rows = self.run_sql_query(f"DESCRIBE {table_path}")
+            cols = []
+            for r in rows:
+                cols.append({
+                    "name": r.get("COLUMN_NAME") or r.get("column_name") or r.get("Field", ""),
+                    "type": r.get("DATA_TYPE") or r.get("data_type") or r.get("Type", ""),
+                    "nullable": str(r.get("IS_NULLABLE") or r.get("is_nullable") or r.get("Null", "YES")).upper() != "NO",
+                })
+            return cols
+        except DremioClientError:
+            return []
+
     def get_available_tables(self):
         """Get all available tables grouped by schema."""
         try:

@@ -300,6 +300,34 @@ class MonitorHandler(http.server.BaseHTTPRequestHandler):
             layout = db.get_dashboard_layout()
             self._send_json(layout)
 
+        elif path == "/api/schema/drifts":
+            table_path = None
+            if "?" in self.path:
+                params = urllib.parse.parse_qs(self.path.split("?")[1])
+                table_path = params.get("table", [None])[0]
+            self._send_json(db.get_schema_drifts(table_path))
+
+        elif path.startswith("/api/schema/history"):
+            table_path = None
+            if "?" in self.path:
+                params = urllib.parse.parse_qs(self.path.split("?")[1])
+                table_path = params.get("table", [None])[0]
+            if not table_path:
+                self._send_json({"error": "table parameter required"}, 400)
+            else:
+                self._send_json(db.get_schema_history(table_path))
+
+        elif path.startswith("/api/schema/latest"):
+            table_path = None
+            if "?" in self.path:
+                params = urllib.parse.parse_qs(self.path.split("?")[1])
+                table_path = params.get("table", [None])[0]
+            if not table_path:
+                self._send_json({"error": "table parameter required"}, 400)
+            else:
+                cols = db.get_latest_schema(table_path)
+                self._send_json(cols or [])
+
         else:
             self._send_json({"error": "Unknown endpoint"}, 404)
 
@@ -371,6 +399,10 @@ class MonitorHandler(http.server.BaseHTTPRequestHandler):
         elif path.startswith("/api/watched-tables/"):
             table_id = int(path.split("/")[-1])
             db.delete_watched_table(table_id)
+            self._send_json({"success": True})
+        elif path.startswith("/api/schema/drifts/"):
+            drift_id = int(path.split("/")[-1])
+            db.acknowledge_schema_drift(drift_id)
             self._send_json({"success": True})
         else:
             self._send_json({"error": "Not found"}, 404)

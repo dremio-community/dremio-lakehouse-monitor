@@ -54,10 +54,13 @@ class AlertEngine:
             "memory_pressure": self._check_memory_pressure,
             "source_down": self._check_source_down,
             "queue_depth": self._check_queue_depth,
+            "schema_drift": self._check_schema_drift,
         }
         fn = checks.get(rule_type)
         if fn:
-            return fn(threshold, state) if rule_type != "source_down" else fn(state)
+            if rule_type in ("source_down", "schema_drift"):
+                return fn(state)
+            return fn(threshold, state)
         return None
 
     def _check_query_duration(self, threshold_min, state):
@@ -133,3 +136,22 @@ class AlertEngine:
             return {"message": f"{len(queued)} queries queued (threshold: {int(threshold)})",
                     "details": {"queued_count": len(queued)}}
         return None
+
+    def _check_schema_drift(self, state):
+        drifts = state.get("schema_drift", [])
+        if not drifts:
+            return None
+        drops = [d for d in drifts if d.get("drift_type") == "column_dropped"]
+        changes = [d for d in drifts if d.get("drift_type") == "type_changed"]
+        additions = [d for d in drifts if d.get("drift_type") == "column_added"]
+        parts = []
+        if drops:
+            parts.append(f"{len(drops)} column(s) dropped")
+        if changes:
+            parts.append(f"{len(changes)} type change(s)")
+        if additions:
+            parts.append(f"{len(additions)} column(s) added")
+        return {
+            "message": f"Schema drift detected: {', '.join(parts)}",
+            "details": {"drifts": drifts[:20]},
+        }

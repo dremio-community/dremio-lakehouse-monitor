@@ -153,6 +153,29 @@ def init_db():
                 ON engine_snapshots(timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_reflection_snapshots_ts
                 ON reflection_snapshots(timestamp DESC);
+
+            CREATE TABLE IF NOT EXISTS schema_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_path TEXT NOT NULL,
+                captured_at REAL NOT NULL,
+                schema_json TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS schema_drifts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_path TEXT NOT NULL,
+                detected_at REAL NOT NULL,
+                drift_type TEXT NOT NULL,
+                column_name TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                acknowledged INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_schema_snapshots_table_ts
+                ON schema_snapshots(table_path, captured_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_schema_drifts_table_ts
+                ON schema_drifts(table_path, detected_at DESC);
         """)
 
 
@@ -580,3 +603,114 @@ def save_dashboard_layout(layout):
             ON CONFLICT(id) DO UPDATE SET
                 layout=excluded.layout, updated_at=excluded.updated_at
         """, (json.dumps(layout), time.time()))
+
+
+# ── Schema Drift ─────────────────────────────────────────────────
+
+def save_schema_snapshot(table_path, columns):
+    """Persist a schema snapshot and return list of detected drifts."""
+    now = time.time()
+    schema_json = json.dumps(columns)
+    drifts = []
+
+    with get_connection() as conn:
+        # Get previous snapshot for this table
+        prev_row = conn.execute("""
+            SELECT schema_json FROM schema_snapshots
+            WHERE table_path = ?
+            ORDER BY captured_at DESC LIMIT 1
+        """, (table_path,)).fetchone()
+
+        if prev_row:
+            prev_cols = {c["name"]: c for c in json.loads(prev_row["schema_json"])}
+            new_cols = {c["name"]: c for c in columns}
+
+            for name, col in new_cols.items():
+                if name not in prev_cols:
+                    drifts.append(("column_added", name, None, col.get("type")))
+                elif prev_cols[name].get("type") != col.get("type"):
+                    drifts.append(("type_changed", name,
+                                   prev_cols[name].get("type"), col.get("type")))
+                elif prev_cols[name].get("nullable") != col.get("nullable"):
+                    drifts.append(("nullability_changed", name,
+                                   str(prev_cols[name].get("nullable")),
+                                   str(col.get("nullable"))))
+
+            for name in prev_cols:
+                if name not in new_cols:
+                    drifts.append(("column_dropped", name, prev_cols[name].get("type"), None))
+
+        conn.execute("""
+            INSERT INTO schema_snapshots (table_path, captured_at, schema_json)
+            VALUES (?, ?, ?)
+        """, (table_path, now, schema_json))
+
+        for drift_type, col_name, old_val, new_val in drifts:
+            conn.execute("""
+                INSERT INTO schema_drifts
+                    (table_path, detected_at, drift_type, column_name, old_value, new_value)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (table_path, now, drift_type, col_name, old_val, new_val))
+
+        # Retain only 90 days of snapshots per table
+        cutoff = now - 90 * 86400
+        conn.execute(
+            "DELETE FROM schema_snapshots WHERE table_path=? AND captured_at < ?",
+            (table_path, cutoff)
+        )
+
+    return drifts
+
+
+def get_schema_history(table_path, limit=50):
+    """Get schema snapshots for a table, newest first."""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT id, table_path, captured_at, schema_json
+            FROM schema_snapshots
+            WHERE table_path = ?
+            ORDER BY captured_at DESC LIMIT ?
+        """, (table_path, limit)).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            d["columns"] = json.loads(d.pop("schema_json"))
+            results.append(d)
+        return results
+
+
+def get_schema_drifts(table_path=None, limit=200):
+    """Get schema drift events, optionally filtered by table."""
+    with get_connection() as conn:
+        if table_path:
+            rows = conn.execute("""
+                SELECT * FROM schema_drifts
+                WHERE table_path = ?
+                ORDER BY detected_at DESC LIMIT ?
+            """, (table_path, limit)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT * FROM schema_drifts
+                ORDER BY detected_at DESC LIMIT ?
+            """, (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def acknowledge_schema_drift(drift_id):
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE schema_drifts SET acknowledged=1 WHERE id=?", (drift_id,)
+        )
+
+
+def get_latest_schema(table_path):
+    """Get the most recent schema snapshot columns for a table."""
+    with get_connection() as conn:
+        row = conn.execute("""
+            SELECT schema_json FROM schema_snapshots
+            WHERE table_path = ?
+            ORDER BY captured_at DESC LIMIT 1
+        """, (table_path,)).fetchone()
+        if row:
+            return json.loads(row["schema_json"])
+        return None
