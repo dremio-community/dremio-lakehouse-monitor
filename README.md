@@ -85,6 +85,7 @@ Access to project system tables (sys.project.history.jobs and sys.project.reflec
 SELECT privilege on any specific Apache Iceberg tables added to the Iceberg Health Watch List.
 
 REST API Endpoints Accessed:
+
 GET /v0/projects/{project_id}/source (Health check and source status)
 
 GET /v0/projects/{project_id}/engines (Engine status and autoscaling monitoring)
@@ -126,8 +127,11 @@ alert_history: Stores triggered alert events (rule name, severity, message, JSON
 Configuration & Metadata (Persisted Until Modified/Deleted):
 
 connection_profiles: Dremio host, port, project ID, and authentication credentials.
+
 watched_tables: Table paths selected for Iceberg health checks and their most recent summary JSON (last_health).
+
 alert_rules & notification_config: Custom alert thresholds and SMTP/Webhook settings.
+
 dashboard_layout: UI widget visibility preferences.
 
 **Security Considerations for Evaluators**
@@ -201,15 +205,21 @@ The Dremio Lakehouse Monitor features a built-in alerting engine that evaluates 
 Alerting Rule Types (Conditions)
 
 Query Duration: Triggers if any active query has been running longer than a specified threshold (in minutes).
+
 Memory Pressure: Triggers if the heap memory usage on any individual Dremio node exceeds a defined percentage (e.g., > 90%).
+
 Queue Depth: Triggers if the number of queries stuck in an "ENQUEUED" state meets or exceeds your threshold, indicating potential engine bottlenecks.
+
 Source Down: Triggers immediately if any connected data source loses connectivity or enters an unhealthy state.
+
 Reflection Failures: Triggers if the count of reflections in a "FAILED" state hits your threshold limit.
+
 Failed Jobs: Triggers if the total count of failed queries/jobs exceeds a certain limit.
 
 Alert Features
 
 Severity Levels: Alerts can be categorized as Info, Warning, or Critical.
+
 Cooldown Periods: You can set cooldown timers (in minutes) per rule to prevent alert spam if a condition persists.
 Granular Toggles: Rules can be individually enabled or disabled.
 
@@ -218,4 +228,5 @@ Notification Channels
 The alerting engine currently supports pushing notifications out through two main channels:
 
 Email (SMTP): Sends HTML-formatted emails. It supports standard SMTP configurations, including custom ports, SSL/TLS, and authentication.
+
 Webhooks: Sends formatted JSON payloads suitable for platforms like Slack, Microsoft Teams, Discord, or PagerDuty. The payloads automatically format text, colors, and emojis based on the alert's severity level.
