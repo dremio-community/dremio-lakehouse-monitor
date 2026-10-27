@@ -124,10 +124,15 @@ connection_profiles: Dremio host, port, project ID, and authentication credentia
 watched_tables: Table paths selected for Iceberg health checks and their most recent summary JSON (last_health).
 alert_rules & notification_config: Custom alert thresholds and SMTP/Webhook settings.
 dashboard_layout: UI widget visibility preferences.
+
 Security Considerations for Evaluators
+
 Credential Storage: Connection credentials (passwords or PATs) and SMTP/Webhook configurations are stored in monitor.db so the background poller can authenticate across restarts. While the /api/connections HTTP endpoint masks passwords and tokens (••••••••) when returning profiles to the UI, the underlying monitor.db file contains them in plaintext. Restrict filesystem permissions on monitor.db (e.g., chmod 600 monitor.db) or the Docker volume accordingly.
+
 Network Binding: When running locally via monitor.py, the server binds to 127.0.0.1 by default. In Docker (--host 0.0.0.0), the web UI does not enforce its own login layer; if deploying on a shared network, place the container behind an authenticated reverse proxy or restrict port 8770 via firewall rules.
+
 Core/Standard Monitors
+
 Server Status: Checks the overall health of the Dremio coordinator.
 Active Jobs: Tracks currently running queries and jobs (including queued status).
 Recent Jobs: Retrieves a list of recently completed jobs.
@@ -161,16 +166,20 @@ Built-in Alerting Engine
 The Dremio Lakehouse Monitor features a built-in alerting engine that evaluates polled metrics against custom thresholds. Here is a breakdown of what the alerting system currently supports:
 
 Alerting Rule Types (Conditions)
+
 Query Duration: Triggers if any active query has been running longer than a specified threshold (in minutes).
 Memory Pressure: Triggers if the heap memory usage on any individual Dremio node exceeds a defined percentage (e.g., > 90%).
 Queue Depth: Triggers if the number of queries stuck in an "ENQUEUED" state meets or exceeds your threshold, indicating potential engine bottlenecks.
 Source Down: Triggers immediately if any connected data source loses connectivity or enters an unhealthy state.
 Reflection Failures: Triggers if the count of reflections in a "FAILED" state hits your threshold limit.
 Failed Jobs: Triggers if the total count of failed queries/jobs exceeds a certain limit.
+
 Alert Features
+
 Severity Levels: Alerts can be categorized as Info, Warning, or Critical.
 Cooldown Periods: You can set cooldown timers (in minutes) per rule to prevent alert spam if a condition persists.
 Granular Toggles: Rules can be individually enabled or disabled.
+
 Notification Channels
 
 The alerting engine currently supports pushing notifications out through two main channels:
