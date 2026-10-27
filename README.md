@@ -1,4 +1,4 @@
-Lakehouse Monitor for Dremio
+**Lakehouse Monitor for Dremio**
 
 A real-time observability and dashboarding tool for Apache Iceberg and Dremio environments.
 
@@ -16,7 +16,7 @@ docker-compose up -d
 
 Note: If your Dremio instance is running locally on your machine, use host.docker.internal (Mac/Windows) or your machine's IP address instead of localhost when configuring the connection in the UI.
 
-Installation (Local/Python)
+**Installation (Local/Python)**
 
 Unzip the project folder and navigate to it in your terminal:
 
@@ -31,7 +31,7 @@ source venv/bin/activate
 
 No external dependencies are required! The application uses pure Python standard libraries.
 
-Running the Monitor
+**Running the Monitor**
 
 The easiest way to run the monitor is to use the clickable launchers provided for your operating system. These scripts will automatically install required dependencies, start the backend server, and open your web browser directly to the dashboard.
 
@@ -49,11 +49,12 @@ On the first launch, you will be presented with a Setup screen.
 Check the Dremio Cloud box if you are connecting to Dremio Cloud, and enter your Project ID and Personal Access Token (PAT). (If connecting to a local Dremio environment, uncheck the box and enter your Dremio hostname, port, and credentials).
 Click Connect.
 Once connected, navigate to the Settings tab to select which Apache Iceberg tables you want to actively monitor for snapshot counts and file sizes!
-Architecture Note
+
+**Architecture Note**
 
 This is a lightweight, self-contained application. The backend is powered by Python's http.server and uses a local SQLite database (monitor.db) to store your active connection profile, widget layouts, alert rules, and rolling metric snapshots. The frontend streams data dynamically via WebSocket.
 
-Required Dremio Permissions
+**Required Dremio Permissions**
 
 The Lakehouse Monitor is strictly read-only—it never modifies datasets, reflections, sources, or cluster settings. However, because it queries system tables and cluster metadata, the configured Dremio user or Personal Access Token (PAT) requires specific permissions depending on your deployment type.
 
@@ -73,7 +74,8 @@ sys.sources (Catalog sync health)
 INFORMATION_SCHEMA."TABLES" (Listing available tables for the Iceberg table watcher)
 Watched Iceberg Tables (Optional):
 Requires SELECT privilege on any specific Apache Iceberg table added to the Watch List in order to query TABLE(table_snapshot('<table_path>')) and TABLE(table_files('<table_path>')).
-2. Dremio Cloud
+
+**3. Dremio Cloud**
 Required Privileges:
 USAGE privilege on the target Project and the default Compute Engine used to run monitoring SQL queries.
 Access to project system tables (sys.project.history.jobs and sys.project.reflections), typically available to Project Admins or roles granted system table visibility.
@@ -91,7 +93,7 @@ How Monitoring Data is Stored
 
 All persistent state is stored locally in a single embedded SQLite database file (running in WAL mode). No telemetry or monitoring data is sent to any external service unless you explicitly configure Email (SMTP) or Webhook alerting.
 
-Storage Location
+**Storage Location**
 Local / Python Execution: Stored at ./monitor.db in the project root directory.
 Docker Execution: Stored at /data/monitor.db inside the container, persisted via the monitor-data Docker volume defined in docker-compose.yml.
 Custom Path: Can be overridden at runtime by setting the DB_PATH environment variable.
@@ -108,7 +110,7 @@ query_snapshots: Timestamp, active/queued/completed/failed counts, and average d
 engine_snapshots: Timestamp, node count, aggregate heap used/max, memory pressure %, and health score (polled every 15s).
 reflection_snapshots: Timestamp, total/active/failed/dead reflection counts, health score, average refresh duration, and total/wasted footprint bytes (polled every 60s).
 
-Alert History (Capped at 1,000 Events):
+**Alert History (Capped at 1,000 Events):**
 
 alert_history: Stores triggered alert events (rule name, severity, message, JSON details, timestamps, and acknowledgment status). Automatically pruned on insert to retain only the most recent 1,000 alerts.
 
