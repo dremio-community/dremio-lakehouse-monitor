@@ -61,6 +61,7 @@ The Lakehouse Monitor is strictly read-only—it never modifies datasets, reflec
 1. Dremio Software (Self-Managed)
 Recommended Role: ADMIN (or a dedicated monitoring service account granted explicit SELECT access to system tables).
 Why? In Dremio Software, non-admin users querying sys.jobs or sys.jobs_recent only see their own queries, and cannot access cluster-wide tables like sys.reflections, sys.memory, or the /api/v3/source API endpoint.
+
 REST API Endpoints Accessed:
 POST /apiv2/login (Authentication token exchange when using username/password)
 GET /apiv2/server_status (Coordinator health check)
@@ -76,7 +77,9 @@ Watched Iceberg Tables (Optional):
 Requires SELECT privilege on any specific Apache Iceberg table added to the Watch List in order to query TABLE(table_snapshot('<table_path>')) and TABLE(table_files('<table_path>')).
 
 **3. Dremio Cloud**
+
 Required Privileges:
+
 USAGE privilege on the target Project and the default Compute Engine used to run monitoring SQL queries.
 Access to project system tables (sys.project.history.jobs and sys.project.reflections), typically available to Project Admins or roles granted system table visibility.
 SELECT privilege on any specific Apache Iceberg tables added to the Iceberg Health Watch List.
@@ -96,6 +99,7 @@ All persistent state is stored locally in a single embedded SQLite database file
 **Storage Location**
 Local / Python Execution: Stored at ./monitor.db in the project root directory.
 Docker Execution: Stored at /data/monitor.db inside the container, persisted via the monitor-data Docker volume defined in docker-compose.yml.
+
 Custom Path: Can be overridden at runtime by setting the DB_PATH environment variable.
 What is Stored in Memory vs. On Disk
 
