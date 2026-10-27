@@ -134,35 +134,61 @@ Network Binding: When running locally via monitor.py, the server binds to 127.0.
 Core/Standard Monitors
 
 Server Status: Checks the overall health of the Dremio coordinator.
+
 Active Jobs: Tracks currently running queries and jobs (including queued status).
+
 Recent Jobs: Retrieves a list of recently completed jobs.
+
 Job Counts: Aggregates totals for completed and failed queries.
+
 Sources: Monitors the connectivity and health status of all connected data sources.
+
 Reflections: Tracks general reflection configurations and their active/failed statuses.
+
 Materializations: Monitors the underlying materialization updates for reflections.
+
 Memory: Tracks heap and direct memory usage across Dremio nodes.
+
 Top Users: Identifies the most active users by query volume.
+
 Top Datasets: Highlights the most frequently queried datasets.
+
 Duration Distribution: Categorizes queries into different duration buckets to track performance trends.
+
 Success Breakdown: Tracks query success versus failure rates.
+
 Query Lifecycle: Measures the time spent in different query phases (queueing, planning, execution).
+
 Error Patterns: Identifies common query error types and their frequencies.
+
 Query Types: Breaks down query origins (e.g., UI, ODBC/JDBC, REST).
+
 Scan Efficiency: Monitors table scan performance and efficiency metrics.
+
 Reflection Efficiency: Evaluates how effectively reflections are being utilized by the engine.
 
 Advanced/Enhanced Monitors
 
 Engine Health: Provides a deep dive into engine node count, overall memory pressure, and identifies nodes in warning or critical states.
+
 Reflection Health: Advanced analysis that tracks dead accelerations, wasted storage footprints, and calculates an overall reflection health score.
+
 Iceberg Health: Detailed, table-level health metrics for specifically "watched" Iceberg tables.
+
 Thread Info: Monitors system thread usage and availability.
+
 C3 Hit Rates: Tracks Cloud Column Cache (C3) efficiency and hit rates.
+
 WLM Queue Metrics: Monitors Workload Management queues to identify bottlenecks.
+
 Spill to Disk: Tracks queries that are spilling memory to disk.
+
 Catalog Sync Health: Monitors the health and latency of catalog synchronizations.
+
 Iceberg Maintenance: Tracks the status of Iceberg maintenance operations like optimization and vacuuming.
+
 Autoscaling Events: Logs engine autoscaling activities (scale-ups and scale-downs).
+
 Built-in Alerting Engine
 
 The Dremio Lakehouse Monitor features a built-in alerting engine that evaluates polled metrics against custom thresholds. Here is a breakdown of what the alerting system currently supports:
