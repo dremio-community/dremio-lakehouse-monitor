@@ -150,7 +150,9 @@ Error Patterns: Identifies common query error types and their frequencies.
 Query Types: Breaks down query origins (e.g., UI, ODBC/JDBC, REST).
 Scan Efficiency: Monitors table scan performance and efficiency metrics.
 Reflection Efficiency: Evaluates how effectively reflections are being utilized by the engine.
+
 Advanced/Enhanced Monitors
+
 Engine Health: Provides a deep dive into engine node count, overall memory pressure, and identifies nodes in warning or critical states.
 Reflection Health: Advanced analysis that tracks dead accelerations, wasted storage footprints, and calculates an overall reflection health score.
 Iceberg Health: Detailed, table-level health metrics for specifically "watched" Iceberg tables.
