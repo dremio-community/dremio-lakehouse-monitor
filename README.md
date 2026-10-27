@@ -83,10 +83,14 @@ Required Privileges:
 USAGE privilege on the target Project and the default Compute Engine used to run monitoring SQL queries.
 Access to project system tables (sys.project.history.jobs and sys.project.reflections), typically available to Project Admins or roles granted system table visibility.
 SELECT privilege on any specific Apache Iceberg tables added to the Iceberg Health Watch List.
+
 REST API Endpoints Accessed:
 GET /v0/projects/{project_id}/source (Health check and source status)
+
 GET /v0/projects/{project_id}/engines (Engine status and autoscaling monitoring)
+
 POST /v0/projects/{project_id}/sql, GET /v0/projects/{project_id}/job/{id}, GET /v0/projects/{project_id}/job/{id}/results
+
 System Views & Tables Queried (SELECT):
 sys.project.history.jobs
 sys.project.reflections
@@ -112,6 +116,7 @@ Rolling Time-Series Snapshots (24-Hour Automatic Retention):
 To power trend charts without unbounded disk growth, the poller writes aggregate numeric counters to SQLite and automatically deletes rows older than 24 hours (86,400 seconds) on every insert:
 query_snapshots: Timestamp, active/queued/completed/failed counts, and average duration (polled every 5s).
 engine_snapshots: Timestamp, node count, aggregate heap used/max, memory pressure %, and health score (polled every 15s).
+
 reflection_snapshots: Timestamp, total/active/failed/dead reflection counts, health score, average refresh duration, and total/wasted footprint bytes (polled every 60s).
 
 **Alert History (Capped at 1,000 Events):**
@@ -125,13 +130,13 @@ watched_tables: Table paths selected for Iceberg health checks and their most re
 alert_rules & notification_config: Custom alert thresholds and SMTP/Webhook settings.
 dashboard_layout: UI widget visibility preferences.
 
-Security Considerations for Evaluators
+**Security Considerations for Evaluators**
 
 Credential Storage: Connection credentials (passwords or PATs) and SMTP/Webhook configurations are stored in monitor.db so the background poller can authenticate across restarts. While the /api/connections HTTP endpoint masks passwords and tokens (••••••••) when returning profiles to the UI, the underlying monitor.db file contains them in plaintext. Restrict filesystem permissions on monitor.db (e.g., chmod 600 monitor.db) or the Docker volume accordingly.
 
 Network Binding: When running locally via monitor.py, the server binds to 127.0.0.1 by default. In Docker (--host 0.0.0.0), the web UI does not enforce its own login layer; if deploying on a shared network, place the container behind an authenticated reverse proxy or restrict port 8770 via firewall rules.
 
-Core/Standard Monitors
+**Core/Standard Monitors**
 
 Server Status: Checks the overall health of the Dremio coordinator.
 
@@ -167,7 +172,7 @@ Scan Efficiency: Monitors table scan performance and efficiency metrics.
 
 Reflection Efficiency: Evaluates how effectively reflections are being utilized by the engine.
 
-Advanced/Enhanced Monitors
+**Advanced/Enhanced Monitors**
 
 Engine Health: Provides a deep dive into engine node count, overall memory pressure, and identifies nodes in warning or critical states.
 
@@ -189,7 +194,7 @@ Iceberg Maintenance: Tracks the status of Iceberg maintenance operations like op
 
 Autoscaling Events: Logs engine autoscaling activities (scale-ups and scale-downs).
 
-Built-in Alerting Engine
+**Built-in Alerting Engine**
 
 The Dremio Lakehouse Monitor features a built-in alerting engine that evaluates polled metrics against custom thresholds. Here is a breakdown of what the alerting system currently supports:
 
